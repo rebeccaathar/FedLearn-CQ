@@ -38,17 +38,21 @@ def main(cfg: DictConfig):
     #A function creating client instances. The function must take a single str argument called cid. 
     #It should return a single client instance of type Client.
 
-    client_fn , metrics= generate_client_fn(trainloaders, validationloaders, cfg.num_classes)
+    client_fn , metrics = generate_client_fn(trainloaders, validationloaders, cfg.num_classes)
+    
+    clients_selected_indice = client_selection(cfg.num_clients, metrics)
+
+    # client_fn  = generate_client_fn(trainloaders, validationloaders, cfg.num_classes)
 
     ''' 2. Filtrar os clientes '''    
 
-    clients_selected_indice = client_selection(cfg.num_clients, metrics)
-    exit()
+    # clients_selected_indice = client_selection(cfg.num_clients, metrics)
+    
     '''4. Define your strategy'''
     strategy = fl.server.strategy.FedAvg(
-        fraction_fit=0.8,  # in simulation, since all clients are available at all times, we can just use `min_fit_clients` to control exactly how many clients we want to involve during fit
+        fraction_fit=1.0,  # in simulation, since all clients are available at all times, we can just use `min_fit_clients` to control exactly how many clients we want to involve during fit
         #min_fit_clients=np.random.randint(6, 12),  # number of clients to sample for fit()
-        fraction_evaluate=0.9,  # similar to fraction_fit, we don't need to use this argument.
+        fraction_evaluate=1.0,  # similar to fraction_fit, we don't need to use this argument.
         # min_evaluate_clients=cfg.num_clients_per_round_eval,  # number of clients to sample for evaluate()
         accept_failures = False,
         # min_available_clients = 11,

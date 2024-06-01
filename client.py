@@ -1,12 +1,15 @@
 from collections import OrderedDict
 from typing import Dict, Tuple
 from flwr.common import NDArrays, Scalar
-from channel import channel_rayleigh
 from cdl_channel import cdl_channel_user
 import numpy as np
+import random
 import torch
 import flwr as fl
-
+import time
+import sys
+from cdl_channel import cdl_channel_user
+import time
 from model import Net, train, test
 
 #Cliente has two main methods: fit() and evaluate()
@@ -17,8 +20,18 @@ from model import Net, train, test
 # set_parameters: that have copies the parameter sent by the server into your model representation
 # get_parameters: thats just the opposite it extracts the weight from your model and represents a list of numpy array
 
+'''
+def to_client():
+    fi
+
+
+'''
+
+
 class FlowerClient(fl.client.NumPyClient):
     """Define a Flower Client."""
+    
+    client_counter = 0
 
     def __init__(self, trainloader, vallodaer, num_classes) -> None:
         super().__init__()
@@ -37,12 +50,34 @@ class FlowerClient(fl.client.NumPyClient):
 
         # figure out if this client has access to GPU support or not
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    
+    def add_noise(self, params, noise_level):
+        '''adding noise to the parameters'''
+        return [param + np.random.normal(0, noise_level, size=param.shape) for param in params]
+
+
+    def delay_broadcast(self, parameters_received):
+               
+        a = self.set_parameters(parameters_received)
+
+        #========= delay broadcast ===========
+        # Tamanho de um float32 em bytes
+        float32_size = 4
+
+        # Calculando o número total de float32 na lista
+        total_floats = sum(len(sublist) for sublist in parameters_received)
+
+        # Calculando o tamanho total em bytes
+        total_size_in_bytes = total_floats * float32_size
+
+        # delay_broadcast = total_size_in_bytes/data_rate
+        # return delay_broadcast
 
 
     #downlink
     def set_parameters(self, parameters):#parameters that we get from the server
-        """Receive parameters and apply them to the local model."""
-
+        """ Receive parameters and apply them to the local model."""
+        
         #Converting every element in a numpy array into a pytorch tensor presentation
         params_dict = zip(self.model.state_dict().keys(), parameters)
 
@@ -58,11 +93,7 @@ class FlowerClient(fl.client.NumPyClient):
 
         # first ensure that my variable is in the CPU and then we're gonna convert it to numpy.
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
-
-    def add_noise(self, params, noise_level):
-        '''adding noise to the parameters'''
-        return [param + np.random.normal(0, noise_level, size=param.shape) for param in params]
-
+    
     #Train this model localy
     def fit(self, parameters, config):
         """
@@ -71,9 +102,22 @@ class FlowerClient(fl.client.NumPyClient):
         that belongs to this client. Then, send it back to the server.
         """
 
+        # if FlowerClient.client_counter <= 3:
+        #     client = FlowerClient.client_counter
+        # else:
+        #     client = FlowerClient.client_counter - 3
+        
+        # FlowerClient.client_counter += 1
+
+        FlowerClient.client_counter += 1
+
+        # Garante que o número do cliente seja 1, 2 ou 3
+        client = (FlowerClient.client_counter - 1) % 3 + 1
+        
+        #tf.seed() dá para usar só configurar que cada cliente tenha um id, tipo clien+=1
+
         # copy parameters sent by the server into client's local model
         self.set_parameters(parameters)
-
         # fetch elements in the config sent by the server. Note that having a config
         # sent by the server each time a client needs to participate is a simple but
         # powerful mechanism to adjust these hyperparameters during the FL process. For
@@ -99,30 +143,52 @@ class FlowerClient(fl.client.NumPyClient):
         # you might want to tweak it but overall, from a client perspective the "local
         # training" can be seen as a form of "centralised training" given a pre-trained
         # model (i.e. the model received from the server)
+        # Record the start time
+        start_time = time.time()
         train(self.model, self.trainloader, optim, epochs, self.device)
+        # Record the end time
+        end_time = time.time()
+        
+        # Calculate the training duration
+        training_duration = end_time - start_time
 
         # Send back the updated model back to the server
         # Return a bit of information of how this dataset is, how many training examples this client used. 
         # We're going to be using a aggregation method called ferabrese and a version of it requires knowing how many 
         # training example wereused by every client. 
-        
-        '''!!!!!!"{} metrics that we can add pretty much anything you want to send back to the server" '''
 
-        '''
-        a, b = channel_rayleigh(cid)
-        parameters_noisy = self.add_noise(self.get_parameters({}), 0.01)
-        '''
-        # Flower clients need to return three arguments: the updated model, the number
-        # of examples in the client (although this depends a bit on your choice of aggregation
-        # strategy), and a dictionary of metrics (here you can add any additional data, but these
-        # are ideally small data structures)
-        # extract the parameters from the Pytorch model we have 
-        # send how many training examples this client used 
-        # {} -> ex: how long this client takes to train, how much energy, how much battery
-        parameters_noisy = self.add_noise(self.get_parameters({}), 1)
+        ber, ebno_db, no = cdl_channel_user(client)
+        print(f'Client: {client}, no: {no}')
+     
+
+        parameters_noisy = self.add_noise(self.get_parameters({}), no)
+
+        def get_data_size(data_list):
+            total_size = 0
+
+            for sublist in data_list:
+                # Se os elementos são listas ou tuplas
+                if isinstance(sublist, (list, tuple)):
+                    # Recursivamente calcula o tamanho da sublista
+                    total_size += get_data_size(sublist)
+                # Se os elementos são arrays numpy ou outras estruturas de dados
+                # que têm um método `nbytes` para calcular o tamanho em bytes
+                elif hasattr(sublist, 'nbytes'):
+                    total_size += sublist.nbytes
+                # Se os elementos são outros tipos de dados (como números ou strings)
+                else:
+                    total_size += sys.getsizeof(sublist)
+            
+            return total_size
+
+        ##O data size não variou mesmo com grandes alterações no noise level, permanecendo sempre com 355408 bytes
+        print(f'SIZE DA LISTA: {get_data_size(parameters_noisy)}')
         # return self.get_parameters({}), len(self.trainloader), {}
         return parameters_noisy, len(self.trainloader), {}
 
+        #return self.get_parameters({}), len(self.trainloader), {}
+
+   
 
     # Received the global model from the server an the idea here is that we dont want to modify the global modeal we just want to evaluate how the global model performs on the validation.
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]):
@@ -132,7 +198,7 @@ class FlowerClient(fl.client.NumPyClient):
         loss, accuracy = test(self.model, self.valloader, self.device)
         #Ensure that the loss is a float and send to server how many examples were in the validation roller
 
-        return float(loss), len(self.valloader), {"accuracy": accuracy}
+        return float(loss), len(self.valloader), {"accuracyyyy": accuracy}
 
 #we need to pass a function that can be called by server in order to spawn a client
 #spawn these clients 0r wake up these clients for simulation
@@ -146,8 +212,7 @@ def generate_client_fn(trainloaders, valloaders, num_classes):
 
     def metrics(cid:str):
         channel_metrics = []
-        # SNR, RSSI = channel_rayleigh(int(cid))
-        ber, ebno_db, no = cdl_channel_user(int(cid))
+        ber, ebno_db, no = cdl_channel_user(int(cid)+1)
         channel_metrics.append(ber)
         channel_metrics.append(ebno_db)
         channel_metrics.append(no)

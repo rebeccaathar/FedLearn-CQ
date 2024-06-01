@@ -23,15 +23,14 @@ from sionna.utils.metrics import compute_ber
 
 
 
-def cdl_channel_user(cid):
+def cdl_channel_user(client):
 
-    tf.random.set_seed(cid)
-
+    np.random.seed(client)
     # Define the number of UT and BS antennas.
     # For the CDL model, that will be used in this notebook, only
     # a single UT and BS are supported.
-    num_ut_ant = 2
-    num_bs_ant = 4
+    num_ut_ant = 1
+    num_bs_ant = 1
 
     # The number of transmitted streams is equal to the number of UT antennas
     # in both uplink and downlink
@@ -83,7 +82,7 @@ def cdl_channel_user(cid):
 
     # Gerando um número aleatório entre 65 ns e 634 ns
     delay_spread = np.random.uniform(lower_bound_ns, upper_bound_ns)
-    print(f'delay spread:  {delay_spread}')
+    # print(f'delay spread:  {delay_spread}')
     #delay_spread = 624e-9 # Nominal delay spread in [s]. Please see the CDL documentation
                         # about how to choose this value. 
 
@@ -98,7 +97,7 @@ def cdl_channel_user(cid):
 
     # The following values for truncation are recommended.
     # Please feel free to tailor them to you needs.
-    print(f'bandwidth: {rg.bandwidth}')
+    # print(f'bandwidth: {rg.bandwidth}')
     l_min, l_max = time_lag_discrete_time_channel(rg.bandwidth)
     l_tot = l_max-l_min+1
 
@@ -150,7 +149,7 @@ def cdl_channel_user(cid):
 
     batch_size = 100 # We pick a small batch_size as executing this code in Eager mode could consume a lot of memory
     # ebno_db = np.random.randint(-10, 10) #The `Eb/No` value in dB
-    ebno_db = np.random.uniform(low=-2.5, high=10)
+    ebno_db = np.random.uniform(low=-5, high=5)
     # ebno_db = 50
     #Computes the Noise Variance (No)
     no = ebnodb2no(ebno_db, num_bits_per_symbol, coderate, rg)
@@ -194,19 +193,8 @@ def cdl_channel_user(cid):
     return ber, ebno_db, no
 
 
-ber, ebno_db, no = cdl_channel_user()
-print("BER: {}".format(ber))
-print("Eb/No: {}".format(ebno_db))
-print("Noise Level: {}".format(no))
+# ber, ebno_db, no = cdl_channel_user(0)
 
-'''
-
-BER -> 0.001
-
-SNR - a
-  no - b
-  BER - c
-  
+# print(f'noise level: {no}')
 
 
-'''
