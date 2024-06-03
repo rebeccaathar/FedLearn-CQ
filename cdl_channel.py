@@ -20,6 +20,7 @@ from sionna.mapping import Mapper, Demapper
 
 from sionna.utils import BinarySource, ebnodb2no, sim_ber, PlotBER
 from sionna.utils.metrics import compute_ber
+from util import calculate_data_rate, calculate_upload_time
 
 
 
@@ -149,8 +150,8 @@ def cdl_channel_user(client):
 
     batch_size = 100 # We pick a small batch_size as executing this code in Eager mode could consume a lot of memory
     # ebno_db = np.random.randint(-10, 10) #The `Eb/No` value in dB
-    ebno_db = np.random.uniform(low=-5, high=5)
-    # ebno_db = 50
+    ebno_db = np.random.uniform(low=-2, high=20)
+    # ebno_db = 20
     #Computes the Noise Variance (No)
     no = ebnodb2no(ebno_db, num_bits_per_symbol, coderate, rg)
     b = binary_source([batch_size, 1, rg.num_streams_per_tx, encoder.k])
@@ -182,19 +183,19 @@ def cdl_channel_user(client):
     # OFDM demodulation and cyclic prefix removal
     y = demodulator(y_time)
 
-
     h_hat, err_var = ls_est ([y, no])
 
     x_hat, no_eff = lmmse_equ([y, h_hat, err_var, no])
     llr = demapper([x_hat, no_eff])
     b_hat = decoder(llr)
     ber = compute_ber(b, b_hat)
+    
+    data_rate = calculate_data_rate(bandwidth = rg.bandwidth , snr_db = ebno_db , num_bits_per_symbol = num_bits_per_symbol, coderate = coderate)
 
-    return ber, ebno_db, no
+    return ebno_db, no, data_rate
 
 
-# ber, ebno_db, no = cdl_channel_user(0)
+# ebno_db, no, data_rate = cdl_channel_user(5)
 
-# print(f'noise level: {no}')
-
+# print(f"Taxa de Dados: {data_rate / 1e6:.3f} Mbps")
 

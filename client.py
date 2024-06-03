@@ -11,6 +11,7 @@ import sys
 from cdl_channel import cdl_channel_user
 import time
 from model import Net, train, test
+from util import get_data_size , add_noise
 
 #Cliente has two main methods: fit() and evaluate()
 #fit: receive the current Global model and train it using the local dataset ans then it sends it back to the server where it will be aggregated. 
@@ -19,13 +20,6 @@ from model import Net, train, test
 #in order to run both fit and evaluate weneed two axillary methods:
 # set_parameters: that have copies the parameter sent by the server into your model representation
 # get_parameters: thats just the opposite it extracts the weight from your model and represents a list of numpy array
-
-'''
-def to_client():
-    fi
-
-
-'''
 
 
 class FlowerClient(fl.client.NumPyClient):
@@ -51,28 +45,6 @@ class FlowerClient(fl.client.NumPyClient):
         # figure out if this client has access to GPU support or not
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
-    def add_noise(self, params, noise_level):
-        '''adding noise to the parameters'''
-        return [param + np.random.normal(0, noise_level, size=param.shape) for param in params]
-
-
-    def delay_broadcast(self, parameters_received):
-               
-        a = self.set_parameters(parameters_received)
-
-        #========= delay broadcast ===========
-        # Tamanho de um float32 em bytes
-        float32_size = 4
-
-        # Calculando o número total de float32 na lista
-        total_floats = sum(len(sublist) for sublist in parameters_received)
-
-        # Calculando o tamanho total em bytes
-        total_size_in_bytes = total_floats * float32_size
-
-        # delay_broadcast = total_size_in_bytes/data_rate
-        # return delay_broadcast
-
 
     #downlink
     def set_parameters(self, parameters):#parameters that we get from the server
@@ -102,13 +74,6 @@ class FlowerClient(fl.client.NumPyClient):
         that belongs to this client. Then, send it back to the server.
         """
 
-        # if FlowerClient.client_counter <= 3:
-        #     client = FlowerClient.client_counter
-        # else:
-        #     client = FlowerClient.client_counter - 3
-        
-        # FlowerClient.client_counter += 1
-
         FlowerClient.client_counter += 1
 
         # Garante que o número do cliente seja 1, 2 ou 3
@@ -117,7 +82,9 @@ class FlowerClient(fl.client.NumPyClient):
         #tf.seed() dá para usar só configurar que cada cliente tenha um id, tipo clien+=1
 
         # copy parameters sent by the server into client's local model
+
         self.set_parameters(parameters)
+  
         # fetch elements in the config sent by the server. Note that having a config
         # sent by the server each time a client needs to participate is a simple but
         # powerful mechanism to adjust these hyperparameters during the FL process. For
@@ -156,39 +123,19 @@ class FlowerClient(fl.client.NumPyClient):
         # Return a bit of information of how this dataset is, how many training examples this client used. 
         # We're going to be using a aggregation method called ferabrese and a version of it requires knowing how many 
         # training example wereused by every client. 
-
-        ber, ebno_db, no = cdl_channel_user(client)
-        print(f'Client: {client}, no: {no}')
+        client= client-1
+        ebno_db, no, data_rate = cdl_channel_user(client)
+        print(f'Client {client}, snr: {ebno_db}, data rate: {data_rate} , training_duration: {training_duration}')
      
+        parameters_noisy = add_noise(self.get_parameters({}), no)
 
-        parameters_noisy = self.add_noise(self.get_parameters({}), no)
+        print(f' Data noisy size: {get_data_size(parameters_noisy)}')
 
-        def get_data_size(data_list):
-            total_size = 0
-
-            for sublist in data_list:
-                # Se os elementos são listas ou tuplas
-                if isinstance(sublist, (list, tuple)):
-                    # Recursivamente calcula o tamanho da sublista
-                    total_size += get_data_size(sublist)
-                # Se os elementos são arrays numpy ou outras estruturas de dados
-                # que têm um método `nbytes` para calcular o tamanho em bytes
-                elif hasattr(sublist, 'nbytes'):
-                    total_size += sublist.nbytes
-                # Se os elementos são outros tipos de dados (como números ou strings)
-                else:
-                    total_size += sys.getsizeof(sublist)
-            
-            return total_size
-
-        ##O data size não variou mesmo com grandes alterações no noise level, permanecendo sempre com 355408 bytes
-        print(f'SIZE DA LISTA: {get_data_size(parameters_noisy)}')
-        # return self.get_parameters({}), len(self.trainloader), {}
-        return parameters_noisy, len(self.trainloader), {}
+        ##O data size não variou mesmo com grandes alterações no noise level, permanecendo sempre com 177704 bytes
 
         #return self.get_parameters({}), len(self.trainloader), {}
+        return parameters_noisy, len(self.trainloader), {}
 
-   
 
     # Received the global model from the server an the idea here is that we dont want to modify the global modeal we just want to evaluate how the global model performs on the validation.
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]):
@@ -212,11 +159,10 @@ def generate_client_fn(trainloaders, valloaders, num_classes):
 
     def metrics(cid:str):
         channel_metrics = []
-        ber, ebno_db, no = cdl_channel_user(int(cid)+1)
-        channel_metrics.append(ber)
+        ebno_db, no , data_rate = cdl_channel_user(int(cid))
         channel_metrics.append(ebno_db)
         channel_metrics.append(no)
-
+        channel_metrics.append(data_rate)
         return channel_metrics
 
     def client_fn(cid: str):
@@ -229,8 +175,7 @@ def generate_client_fn(trainloaders, valloaders, num_classes):
       
         return FlowerClient(trainloader=trainloaders[int(cid)],
                             vallodaer=valloaders[int(cid)],
-                            num_classes=num_classes,
-                            )
+                            num_classes=num_classes,)
 
     # return the function to spawn client
     return client_fn , metrics

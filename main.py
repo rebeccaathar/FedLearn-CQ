@@ -16,6 +16,7 @@ from server import get_on_fit_config, get_evaluate_fn
 # A decorator for Hydra. This tells hydra to by default load the config in conf/base.yaml
 @hydra.main(config_path="conf", config_name="base", version_base=None)
 def main(cfg: DictConfig):
+    # np.random.seed(42)
     '''1. Parse config & get experiment output dir'''
     print(OmegaConf.to_yaml(cfg))
     
@@ -39,19 +40,17 @@ def main(cfg: DictConfig):
     #It should return a single client instance of type Client.
 
     client_fn , metrics = generate_client_fn(trainloaders, validationloaders, cfg.num_classes)
-    
-    clients_selected_indice = client_selection(cfg.num_clients, metrics)
-
-    # client_fn  = generate_client_fn(trainloaders, validationloaders, cfg.num_classes)
 
     ''' 2. Filtrar os clientes '''    
 
-    # clients_selected_indice = client_selection(cfg.num_clients, metrics)
+    clients_selected_indice = client_selection(cfg.num_clients, metrics)
     
     '''4. Define your strategy'''
+    
+    '''Strategy Using FedAvg'''
     strategy = fl.server.strategy.FedAvg(
-        fraction_fit=1.0,  # in simulation, since all clients are available at all times, we can just use `min_fit_clients` to control exactly how many clients we want to involve during fit
-        #min_fit_clients=np.random.randint(6, 12),  # number of clients to sample for fit()
+        #fraction_fit=1.0,  # in simulation, since all clients are available at all times, we can just use `min_fit_clients` to control exactly how many clients we want to involve during fit
+        #min_fit_clients=1,  # number of clients to sample for fit()
         fraction_evaluate=1.0,  # similar to fraction_fit, we don't need to use this argument.
         # min_evaluate_clients=cfg.num_clients_per_round_eval,  # number of clients to sample for evaluate()
         accept_failures = False,
@@ -68,8 +67,9 @@ def main(cfg: DictConfig):
     # With the dataset partitioned, the client function and the strategy ready, we can now launch the simulation!
     history = fl.simulation.start_simulation(
         client_fn=client_fn,  # a function that spawns a particular client - função que cria os clientes
-        num_clients=cfg.num_clients,  # total number of clients available --> len(filter_client)
-        # clients_ids = clients_selected_indice,
+        #num_clients=cfg.num_clients,  # total number of clients available --> len(filter_client)
+        #num_clients = len(clients_selected_indice)
+        clients_ids = clients_selected_indice,
         config=fl.server.ServerConfig(
                     num_rounds=cfg.num_rounds),  # minimal config for the server loop telling the number of rounds in FL
         strategy=strategy,  # our strategy of choice
