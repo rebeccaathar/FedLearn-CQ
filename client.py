@@ -10,6 +10,9 @@ import time
 import sys
 from cdl_channel import cdl_channel_user
 import time
+import hydra
+import yaml
+from hydra.core.hydra_config import HydraConfig
 from model import Net, train, test
 from util import get_data_size , add_noise
 
@@ -24,7 +27,11 @@ from util import get_data_size , add_noise
 
 class FlowerClient(fl.client.NumPyClient):
     """Define a Flower Client."""
-    
+    with open('conf/base.yaml', 'r') as file:
+            config = yaml.safe_load(file)
+        
+    #client_list = config['clients_selected_indice']
+    client_list = [int(client) for client in config['clients_selected_indice']]
     client_counter = 0
 
     def __init__(self, trainloader, vallodaer, num_classes) -> None:
@@ -74,11 +81,10 @@ class FlowerClient(fl.client.NumPyClient):
         that belongs to this client. Then, send it back to the server.
         """
 
-        FlowerClient.client_counter += 1
+        # Seleciona o cliente atual e atualiza o contador para o próximo cliente
+        client = FlowerClient.client_list[FlowerClient.client_counter]
+        FlowerClient.client_counter = (FlowerClient.client_counter + 1) % len(FlowerClient.client_list)
 
-        # Garante que o número do cliente seja 1, 2 ou 3
-        client = (FlowerClient.client_counter - 1) % 3 + 1
-        
         #tf.seed() dá para usar só configurar que cada cliente tenha um id, tipo clien+=1
 
         # copy parameters sent by the server into client's local model
@@ -123,7 +129,7 @@ class FlowerClient(fl.client.NumPyClient):
         # Return a bit of information of how this dataset is, how many training examples this client used. 
         # We're going to be using a aggregation method called ferabrese and a version of it requires knowing how many 
         # training example wereused by every client. 
-        client= client-1
+        #client= client-1
         ebno_db, no, data_rate = cdl_channel_user(client)
         print(f'Client {client}, snr: {ebno_db}, data rate: {data_rate} , training_duration: {training_duration}')
      

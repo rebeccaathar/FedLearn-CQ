@@ -19,7 +19,7 @@ server_param_data_size = 355408
 client_param_data_size = 355408
 local_training = 4.5630
 
-min_snr = 3
+min_snr = 9
 min_total_time = 5.90
 
 def client_selection(num_clients, metrics):

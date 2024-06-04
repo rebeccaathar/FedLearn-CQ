@@ -11,7 +11,7 @@ from dataset import prepare_dataset
 from client import generate_client_fn
 from client_selection import client_selection
 from server import get_on_fit_config, get_evaluate_fn
-
+from util import update_base
 
 # A decorator for Hydra. This tells hydra to by default load the config in conf/base.yaml
 @hydra.main(config_path="conf", config_name="base", version_base=None)
@@ -45,17 +45,21 @@ def main(cfg: DictConfig):
 
     clients_selected_indice = client_selection(cfg.num_clients, metrics)
     
+    ''' 3. Atualizar o arquivo base.yaml '''
+    update_base(clients_selected_indice)
+
     '''4. Define your strategy'''
     
     '''Strategy Using FedAvg'''
     strategy = fl.server.strategy.FedAvg(
-        #fraction_fit=1.0,  # in simulation, since all clients are available at all times, we can just use `min_fit_clients` to control exactly how many clients we want to involve during fit
+        fraction_fit=1.0,  # in simulation, since all clients are available at all times, we can just use `min_fit_clients` to control exactly how many clients we want to involve during fit
         #min_fit_clients=1,  # number of clients to sample for fit()
         fraction_evaluate=1.0,  # similar to fraction_fit, we don't need to use this argument.
-        # min_evaluate_clients=cfg.num_clients_per_round_eval,  # number of clients to sample for evaluate()
+        #min_evaluate_clients=cfg.num_clients_per_round_eval,  # number of clients to sample for evaluate()
         accept_failures = False,
         # min_available_clients = 11,
-        # min_available_clients=cfg.num_clients,  # total clients available
+        min_available_clients= 2,
+        #min_available_clients=cfg.num_clients,  # total clients available
         on_fit_config_fn=get_on_fit_config(
             cfg.config_fit
         ),  # a function to execute to obtain the configuration to send to the clients during fit()
@@ -69,7 +73,7 @@ def main(cfg: DictConfig):
         client_fn=client_fn,  # a function that spawns a particular client - função que cria os clientes
         #num_clients=cfg.num_clients,  # total number of clients available --> len(filter_client)
         #num_clients = len(clients_selected_indice)
-        clients_ids = clients_selected_indice,
+        clients_ids = cfg.clients_selected_indice,
         config=fl.server.ServerConfig(
                     num_rounds=cfg.num_rounds),  # minimal config for the server loop telling the number of rounds in FL
         strategy=strategy,  # our strategy of choice
