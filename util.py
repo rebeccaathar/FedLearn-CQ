@@ -1,6 +1,8 @@
 import numpy as np
 import sys
 import yaml
+from typing import Callable, Dict, List, Optional, Tuple, Union
+
 
 def get_data_size(data_list):
     total_size = 0
@@ -106,4 +108,20 @@ def update_base(clients_selected_indice):
     # Salva o dicionário de volta no arquivo YAML
     with open(file_path, 'w') as file:
         yaml.safe_dump(config, file)
-    
+
+def create_number_list(x: int) -> List[int]:
+    """Cria uma lista de números de 1 a x."""
+    return list(range( x ))
+
+# def client_selection_strategy(num_users, metrics) -> Callable[[int], Dict[str, str]]:
+   
+#     """Return a function which returns training configurations."""
+
+#     def fit_config(server_round: int) -> Dict[str, str]:
+
+#         if server_round == 1:
+
+
+#         return config
+
+    # return fit_config

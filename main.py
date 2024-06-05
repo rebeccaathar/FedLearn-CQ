@@ -6,12 +6,13 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
 import flwr as fl
+import time
 
 from dataset import prepare_dataset
 from client import generate_client_fn
-from client_selection import client_selection
+from client_selection import client_selection , clients_metrics , filter_clients
 from server import get_on_fit_config, get_evaluate_fn
-from util import update_base
+from util import update_base , create_number_list
 
 # A decorator for Hydra. This tells hydra to by default load the config in conf/base.yaml
 @hydra.main(config_path="conf", config_name="base", version_base=None)
@@ -43,10 +44,17 @@ def main(cfg: DictConfig):
 
     ''' 2. Filtrar os clientes '''    
 
-    clients_selected_indice = client_selection(cfg.num_clients, metrics)
-    
+    clients_selected_ids = create_number_list(cfg.num_clients) ##all clients
+    print(f'all clients available: {clients_selected_ids}')
+
     ''' 3. Atualizar o arquivo base.yaml '''
-    update_base(clients_selected_indice)
+    update_base(clients_selected_ids)
+    time.sleep(10)
+
+    client_metrics = clients_metrics(cfg.num_clients, metrics)
+
+    clients_selected = filter_clients(client_metrics)
+    print("Índices dos clientes filtrados:", clients_selected)
 
     '''4. Define your strategy'''
     
@@ -58,7 +66,10 @@ def main(cfg: DictConfig):
         #min_evaluate_clients=cfg.num_clients_per_round_eval,  # number of clients to sample for evaluate()
         accept_failures = False,
         # min_available_clients = 11,
+        clients_selected=clients_selected, 
         min_available_clients= 2,
+        #Aqui vai ser atualizado a cada rodada
+        clients_selected_ids = cfg.clients_selected_indice,
         #min_available_clients=cfg.num_clients,  # total clients available
         on_fit_config_fn=get_on_fit_config(
             cfg.config_fit
@@ -71,8 +82,10 @@ def main(cfg: DictConfig):
     # With the dataset partitioned, the client function and the strategy ready, we can now launch the simulation!
     history = fl.simulation.start_simulation(
         client_fn=client_fn,  # a function that spawns a particular client - função que cria os clientes
+        #Vai ser utilizado todos na primeira rodada 
         #num_clients=cfg.num_clients,  # total number of clients available --> len(filter_client)
         #num_clients = len(clients_selected_indice)
+        #Vai ser utilizado todos na primeira rodada
         clients_ids = cfg.clients_selected_indice,
         config=fl.server.ServerConfig(
                     num_rounds=cfg.num_rounds),  # minimal config for the server loop telling the number of rounds in FL

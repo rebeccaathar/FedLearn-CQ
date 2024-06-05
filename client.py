@@ -12,6 +12,7 @@ from cdl_channel import cdl_channel_user
 import time
 import hydra
 import yaml
+import time
 from hydra.core.hydra_config import HydraConfig
 from model import Net, train, test
 from util import get_data_size , add_noise
@@ -27,12 +28,14 @@ from util import get_data_size , add_noise
 
 class FlowerClient(fl.client.NumPyClient):
     """Define a Flower Client."""
+    
     with open('conf/base.yaml', 'r') as file:
-            config = yaml.safe_load(file)
+            cfg = yaml.safe_load(file)
         
     #client_list = config['clients_selected_indice']
-    client_list = [int(client) for client in config['clients_selected_indice']]
+    client_list = [int(client) for client in cfg['clients_selected_indice']]
     client_counter = 0
+    
 
     def __init__(self, trainloader, vallodaer, num_classes) -> None:
         super().__init__()
