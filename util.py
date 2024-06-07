@@ -107,7 +107,8 @@ def update_base(clients_selected_indice):
 
     # Salva o dicionário de volta no arquivo YAML
     with open(file_path, 'w') as file:
-        yaml.safe_dump(config, file)
+        yaml.dump(config, file)
+        file.close() 
 
 def create_number_list(x: int) -> List[int]:
     """Cria uma lista de números de 1 a x."""
@@ -118,10 +119,7 @@ def create_number_list(x: int) -> List[int]:
 #     """Return a function which returns training configurations."""
 
 #     def fit_config(server_round: int) -> Dict[str, str]:
-
 #         if server_round == 1:
-
-
 #         return config
 
     # return fit_config

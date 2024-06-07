@@ -132,9 +132,8 @@ class FlowerClient(fl.client.NumPyClient):
         # Return a bit of information of how this dataset is, how many training examples this client used. 
         # We're going to be using a aggregation method called ferabrese and a version of it requires knowing how many 
         # training example wereused by every client. 
-        #client= client-1
         ebno_db, no, data_rate = cdl_channel_user(client)
-        print(f'Client {client}, snr: {ebno_db}, data rate: {data_rate} , training_duration: {training_duration}')
+        print(f'Client {client}, snr: {ebno_db}, data rate: {data_rate/1e6:.3f} Mbps , training_duration: {training_duration:.3f} s')
      
         parameters_noisy = add_noise(self.get_parameters({}), no)
 

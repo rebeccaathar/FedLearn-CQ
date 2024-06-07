@@ -10,7 +10,7 @@ import time
 
 from dataset import prepare_dataset
 from client import generate_client_fn
-from client_selection import client_selection , clients_metrics , filter_clients
+from client_selection import clients_metrics , filter_clients , client_selection
 from server import get_on_fit_config, get_evaluate_fn
 from util import update_base , create_number_list
 
@@ -44,17 +44,16 @@ def main(cfg: DictConfig):
 
     ''' 2. Filtrar os clientes '''    
 
-    clients_selected_ids = create_number_list(cfg.num_clients) ##all clients
-    print(f'all clients available: {clients_selected_ids}')
-
+    #clients_selected_ids = create_number_list(cfg.num_clients) ##all clients
+    clients_selected_ids = client_selection(cfg.num_clients, metrics)
     ''' 3. Atualizar o arquivo base.yaml '''
     update_base(clients_selected_ids)
-    time.sleep(10)
+    time.sleep(30)
 
-    client_metrics = clients_metrics(cfg.num_clients, metrics)
+    # client_metrics = clients_metrics(cfg.num_clients, metrics)
 
-    clients_selected = filter_clients(client_metrics)
-    print("Índices dos clientes filtrados:", clients_selected)
+    # clients_selected = filter_clients(client_metrics)
+    # print("Índices dos clientes filtrados:", clients_selected)
 
     '''4. Define your strategy'''
     
@@ -63,11 +62,11 @@ def main(cfg: DictConfig):
         fraction_fit=1.0,  # in simulation, since all clients are available at all times, we can just use `min_fit_clients` to control exactly how many clients we want to involve during fit
         #min_fit_clients=1,  # number of clients to sample for fit()
         fraction_evaluate=1.0,  # similar to fraction_fit, we don't need to use this argument.
-        #min_evaluate_clients=cfg.num_clients_per_round_eval,  # number of clients to sample for evaluate()
+        min_evaluate_clients=len(cfg.clients_selected_indice),  # number of clients to sample for evaluate())
         accept_failures = False,
         # min_available_clients = 11,
-        clients_selected=clients_selected, 
-        min_available_clients= 2,
+        # clients_selected=clients_selected, 
+        # min_available_clients= 2,
         #Aqui vai ser atualizado a cada rodada
         clients_selected_ids = cfg.clients_selected_indice,
         #min_available_clients=cfg.num_clients,  # total clients available
@@ -84,7 +83,6 @@ def main(cfg: DictConfig):
         client_fn=client_fn,  # a function that spawns a particular client - função que cria os clientes
         #Vai ser utilizado todos na primeira rodada 
         #num_clients=cfg.num_clients,  # total number of clients available --> len(filter_client)
-        #num_clients = len(clients_selected_indice)
         #Vai ser utilizado todos na primeira rodada
         clients_ids = cfg.clients_selected_indice,
         config=fl.server.ServerConfig(

@@ -20,8 +20,8 @@ server_param_data_size = 355408
 client_param_data_size = 355408
 local_training = 4.5630
 
-min_snr = 9
-min_total_time = 5.90
+min_snr = 7
+min_total_time = 4.70
 
 def client_selection(num_clients, metrics):
     clients_selected_indice = []
@@ -33,7 +33,7 @@ def client_selection(num_clients, metrics):
         total_time = time_broadcast + local_training +  upload_time
         noise_level = metrics(i)[1]
 
-        #print(f'client{i}: snr = {snr}  uplink_data_rate = {uplink_data_rate / 1e6:.3f} Mbps  upload_time = {upload_time:.3f}s  total_time = {total_time:.3f}s ')
+        print(f'client{i}: snr = {snr}  uplink_data_rate = {uplink_data_rate / 1e6:.3f} Mbps  upload_time = {upload_time:.3f}s  total_time = {total_time:.3f}s ')
 
         if snr >= min_snr and total_time <= min_total_time: 
             clients_selected_indice.append(i)
@@ -52,6 +52,7 @@ def clients_metrics(num_clients, metrics):
         upload_time = client_param_data_size/uplink_data_rate
         total_time = time_broadcast + local_training + upload_time
         noise_level = metrics(i)[1].numpy().item()
+        print(f'client{i}: snr = {snr}  uplink_data_rate = {uplink_data_rate / 1e6:.3f} Mbps  upload_time = {upload_time:.3f}s  total_time = {total_time:.3f}s ')
         
         clients_selected_info.append({
                 "id": i,
